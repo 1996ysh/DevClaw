@@ -9,6 +9,7 @@
 """
 from langchain.chat_models import init_chat_model
 
+from infra.llm_router import get_model_for_role
 from infra.settings import get_settings
 from subagents.schema import ReviewResult
 from tools.registry import get_tools
@@ -53,7 +54,7 @@ def build_subagents(workdir: str = "/home/daytona") -> list[dict]:
             f"涉及文件请用 `{workdir}/` 开头的绝对路径表述。"
         ),
         "tools": [],  # 纯规划，不需要工具（最小集）
-        # model 省略 = 继承主 Agent 模型（拆解需要较强模型）
+        "model":get_model_for_role('planner'),
     }
 
     researcher = {
@@ -65,7 +66,7 @@ def build_subagents(workdir: str = "/home/daytona") -> list[dict]:
             "控制在 300 字以内。" + PATH_RULE
         ),
         "tools": get_tools("search"),  # 搜索工具 + 继承的内置文件工具足够
-        # 调研是"读+总结"，可用便宜模型省成本（此处演示仍用默认；第 7 章接路由后按难度分配）
+        "model": get_model_for_role('researcher'),
     }
 
     coder = {
@@ -75,7 +76,7 @@ def build_subagents(workdir: str = "/home/daytona") -> list[dict]:
             "你是严谨的工程师。严格按计划改代码，遵循团队规范（见 AGENTS.md 与 skills）："
             "类型注解齐全、金额用 Decimal、关键逻辑配 docstring。改完用一两句说明改了什么。" + PATH_RULE
         ),
-        # tools 省略 = 继承主 Agent 工具（含文件工具、git 等）；写代码需要较强模型
+        "model": get_model_for_role('coder')
     }
 
     tester = {
@@ -86,7 +87,7 @@ def build_subagents(workdir: str = "/home/daytona") -> list[dict]:
             f"`cd {workdir} && python -m pytest -q` 验证。如果失败，分析原因并报告。"
             "最后只返回：测试是否通过、几条用例、失败的关键信息（若有）。不要贴完整测试输出。" + PATH_RULE
         ),
-        # tester 需要 execute 工具——它由沙箱后端自动提供（见第 3 节），故这里继承工具即可
+        "model": get_model_for_role('tester')
     }
 
     reviewer = {
@@ -97,8 +98,9 @@ def build_subagents(workdir: str = "/home/daytona") -> list[dict]:
             "有无硬编码密钥/危险操作/越权。给出结构化结论：是否通过、问题清单、安全发现。"
             f"只读代码（用 `{workdir}/` 开头的绝对路径 read_file/grep），不要修改任何文件。"
         ),
-        "tools": get_tools(),  # 给只读用途；下一行用 permissions 也可强制只读（第 11 章细化）
+        "tools": get_tools(),  # 给只读用途；下一行用 permissions 也可强制只读
         "response_format": ReviewResult,  # ← 结构化输出：parent 收到 JSON，可用代码判断 approved
+        "model": get_model_for_role('reviewer')
     }
 
     return [planner, researcher, coder, tester, reviewer]

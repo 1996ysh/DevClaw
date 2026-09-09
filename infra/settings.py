@@ -39,7 +39,11 @@ class Settings(BaseSettings):
     # ===== 运行 =====
     log_level: str = "INFO"
     mcp_servers: dict[str, dict] = {}
-
+    model_tiers: dict[str, str] = {
+        "strong": "qwen3.8-max",        # 难任务：规划、写代码、审查
+        "standard": "glm5.2",     # 中等任务：测试
+        "cheap": "qwen-plus",       # 简单任务：读代码、总结
+    }
 @lru_cache
 def get_settings() -> Settings:
     """全进程单例。业务代码统一通过它拿配置。"""
