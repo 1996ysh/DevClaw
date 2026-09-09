@@ -7,6 +7,7 @@ from pathlib import Path
 
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
+from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -17,9 +18,11 @@ import asyncio
 from middleware.audit import ToolAuditMiddleware
 from middleware.context import RequestContextMiddleware
 from middleware.cost import CostMeterMiddleware
+from sandbox.manager import get_or_create_sandbox_backend
+from subagents.profile import build_subagents
 from tools.mcp import MCPManager
 from tools.registry import get_tools
-
+load_dotenv()
 # 项目根目录（agent 的文件读写圈在这里，virtual_mode 挡掉越权）
 PROJECT_ROOT = str(Path(__file__).resolve().parent)
 def build_backend():
@@ -46,22 +49,37 @@ def build_model():
         max_retries=s.max_retries,
         timeout=s.timeout,
     )
-async def build_agent(user_id: str = "anonymous", channel: str = "cli"):
+async def build_agent(thread_id:str,user_id: str = "anonymous", channel: str = "cli"):
     """构建 DevMate 主 Agent，返回一个已编译的 LangGraph 图。
 
     注意：创建只用 create_deep_agent（官方唯一工厂）。
     "异步"体现在调用阶段——我们之后用 agent.ainvoke / agent.astream。
     """
     #这里的virtual_mode参数为是否允许agent读写文件
-    backend = FilesystemBackend(root_dir=str(PROJECT_ROOT),virtual_mode=True)
+    #本地文件back
+    # backend = FilesystemBackend(root_dir=str(PROJECT_ROOT),virtual_mode=True)
     mcp_tools = await MCPManager.from_settings().get_tools()
+    # workdir 是沙箱工作目录（Daytona 默认 /home/daytona），项目就 seed 在它下面
+    sandbox_backend, sandbox, client, workdir = get_or_create_sandbox_backend(thread_id)
     agent = create_deep_agent(
         model=build_model(),
-        system_prompt=DEVMATE_SYSTEM_PROMPT,
-        backend=backend,
+        system_prompt=DEVMATE_SYSTEM_PROMPT+(
+            f"\n\n【执行环境与路径规则——必须严格遵守】"
+            f"\n你运行在一个沙箱里，项目代码已位于 `{workdir}/` 下（含 `{workdir}/app/`、`{workdir}/tests/`）。"
+            f"\n⚠️ 所有文件操作（write_file/edit_file/read_file）和命令（execute）都【必须】使用以 `{workdir}/` 开头的【绝对路径】。"
+            f"\n✅ 正确：写测试到 `{workdir}/tests/test_pricing.py`、改代码 `{workdir}/app/pricing.py`、"
+            f"跑测试 `cd {workdir} && python -m pytest -q`。"
+            f"\n❌ 错误（会因权限被拒绝，绝不要这样）：`/test_pricing.py`、`test_pricing.py`、`/app/pricing.py` 这类根路径或相对路径。"
+            f"\n如果你不确定某文件在哪，先用 `ls {workdir}` 查看，再用绝对路径操作。"
+            "\n\n你是团队负责人：对复杂 Issue，先用 task() 委派给 planner 规划，"
+            "再依次委派 researcher/coder/tester/reviewer。你只做协调，不亲自写大量代码。"
+            "委派时，把上面的【绝对路径规则】一并转达给子代理。"
+        ),
+        backend=sandbox_backend,
+        subagents=build_subagents(workdir),
         tools=get_tools("git", "search", "test")+mcp_tools,
-        skills = [str(Path(PROJECT_ROOT) / "skills")],
-        memory=[str(Path(PROJECT_ROOT) / "AGENTS.md")],
+        skills=[f"{workdir}/skills"],
+        memory=[f"{workdir}/AGENTS.md"],
         middleware=[
             RequestContextMiddleware(user_id=user_id, channel=channel),
             ToolAuditMiddleware(),
@@ -70,4 +88,5 @@ async def build_agent(user_id: str = "anonymous", channel: str = "cli"):
         checkpointer=MemorySaver(),
     )
     logger.info("DevMate 主 Agent 构建完成：model={}", get_settings().model_name)
-    return agent
+    logger.info("DevMate 团队版构建完成：5 子代理 + 沙箱后端（项目已 seed 到 {}）", workdir)
+    return agent,sandbox, client

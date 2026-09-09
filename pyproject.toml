@@ -23,6 +23,7 @@ dependencies = [
     "python-dotenv>=1.0.0",               # 加载 .env
     "daytona>=0.211.2",
     "langchain-daytona>=0.0.8",
+    "langchain-mcp-adapters>=0.3.2",
 ]
 [project.optional-dependencies]
 # MCP：

@@ -16,13 +16,13 @@ from langchain_daytona import DaytonaSandbox
 from infra.logging import get_logger
 
 logger = get_logger()
-
+#收集本机要上传的文件，转换成 Daytona API 要求上传格式
 def _collect_project_files(
-    root: Path,
-    dest_root: str,
-    subdirs: list[str],
-    extra_files: list[str],
-) -> list[tuple[str, bytes]]:
+    root: Path,                    # 项目根目录的路径（宿主机上）
+    dest_root: str,                # 沙箱内的目标根目录（如 "/home/daytona"）
+    subdirs: list[str],            # 需要上传的子目录列表（如 ["app", "tests"]）
+    extra_files: list[str],        # 需要额外上传的根级文件列表（如 ["AGENTS.md"]）
+) -> list[tuple[str, bytes]]:     # 返回值：包含(沙箱内路径, 文件内容)的元组列表
     """把宿主机项目里要 seed（预置）进沙箱的文件，收集成 upload_files 需要的格式。
 
     返回值：[(沙箱内绝对路径, 文件字节内容), ...]
@@ -41,11 +41,11 @@ def _collect_project_files(
     一定要把项目放到它下面，不要往 / 根目录写：
     沙箱默认用户没有 root 权限，往根目录 mkdir 会直接 'permission denied'。
     """
-    items: list[tuple[str, bytes]] = []
+    items: list[tuple[str, bytes]] = []    # 用于存储最终上传文件的列表（路径+内容）
     dest_root = dest_root.rstrip("/")  # 去掉结尾斜杠，规范化，避免后面拼出 // 双斜杠
     # 1) 处理指定的子目录：递归遍历里面所有文件并上传
     #    （跳过 __pycache__ 缓存目录 和 . 开头的隐藏文件/目录，避免把垃圾传进去）
-    for sub in subdirs:
+    for sub in subdirs:                    # 遍历每个需要上传的子目录
         base = root / sub          # 宿主机上这个子目录的绝对路径
         if not base.exists():      # 项目里没有这个目录就跳过（容错，不报错）
             continue
@@ -63,13 +63,13 @@ def _collect_project_files(
                 items.append((f"{dest_root}/{rel}", p.read_bytes()))
 
     # 2) 处理单独列出的根级文件（比如仓库记忆文件 AGENTS.md，它不在某个子目录里）
-    for fname in extra_files:
-        f = root / fname
+    for fname in extra_files:              # 遍历每个需要额外上传的根级文件
+        f = root / fname                   # 获取文件在宿主机上的完整路径
         if f.is_file():            # 存在才传（容错）
             items.append((f"{dest_root}/{fname}", f.read_bytes()))
 
-    return items
-
+    return items                          # 返回所有需要上传的文件列表
+#真正把收集好的文件上传到沙箱，返回沙箱工作目录
 def seed_project_into_sandbox(backend, sandbox, root: Path) -> str:
     """把项目源码/技能/记忆 seed（预置）进沙箱（Agent 跑之前必须做这一步）。
 
@@ -113,7 +113,7 @@ def seed_project_into_sandbox(backend, sandbox, root: Path) -> str:
     logger.info("已 seed {} 个文件进沙箱工作目录 {}", len(files), workdir)
     return workdir
 
-
+#入口主函数，**获取或者创建沙箱**（业务核心）
 def get_or_create_sandbox_backend(thread_id: str, project_root: Path | None = None):
     """按 thread_id 获取或创建一个沙箱后端（这里用 Daytona 做示例），新建时顺带 seed 项目。
 
@@ -190,3 +190,16 @@ def get_or_create_sandbox_backend(thread_id: str, project_root: Path | None = No
             workdir = "/home/daytona"
 
     return backend, sandbox, client, workdir
+def download_artifacts(backend, sandbox_paths: list[str]) -> dict[str, bytes]:
+    """从沙箱取回指定文件（agent 跑完后用）。返回 {沙箱路径: 字节内容}。
+
+    官方 download_files 返回结果含 .path / .content(bytes) / .error。
+    """
+    out: dict[str, bytes] = {}
+    results = backend.download_files(sandbox_paths)
+    for r in results:
+        if getattr(r, "content", None) is not None:
+            out[r.path] = r.content
+        else:
+            logger.warning("取回失败 {}：{}", getattr(r, "path", "?"), getattr(r, "error", "?"))
+    return out
