@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # ===== 运行 =====
     log_level: str = "INFO"
-
+    mcp_servers: dict[str, dict] = {}
 
 @lru_cache
 def get_settings() -> Settings:

@@ -5,25 +5,24 @@ description = "开源、可自部署、多模型路由、多渠道接入的开�
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-        # ===== Agent 核心 =====
+    # ===== Agent 核心 =====
     "deepagents>=0.6.0",                  # Harness 层（本项目主角）
     "langchain>=1.1.0",                   # 构建模块（init_chat_model / 模型 profiles）
     "langgraph>=1.1.0",                   # 编排运行时（checkpointer / streaming / HITL）
     "langchain-openai>=0.3.0",            # 模型集成包（国产模型走 OpenAI 兼容接口）
-
     # ===== 持久化底座 + 异步驱动栈=====
     "langgraph-checkpoint-postgres>=3.0.0",  # PostgresSaver / AsyncPostgresSaver + store
     "psycopg[binary,pool]>=3.2.0",           # Postgres 驱动（psycopg3）+ 异步连接池
     "redis>=5.0.0",                          # Redis 客户端，自带 redis.asyncio 异步接口
-
     # ===== Web 服务=====
     "fastapi>=0.115.0",                   # 异步 Web 框架
     "uvicorn[standard]>=0.30.0",          # ASGI 服务器
-
     # ===== 配置与日志 =====
     "loguru>=0.7.0",
     "pydantic-settings>=2.0.0",           # 配置
     "python-dotenv>=1.0.0",               # 加载 .env
+    "daytona>=0.211.2",
+    "langchain-daytona>=0.0.8",
 ]
 [project.optional-dependencies]
 # MCP：

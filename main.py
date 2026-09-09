@@ -3,8 +3,12 @@ agent/main.py —— 构建 DevMate 主 Agent
 - 用官方唯一的工厂 create_deep_agent 构建；
 - system_prompt 是 DevMate 的"领域人设"，会追加到 DeepAgents 内置提示词之后
 """
+from pathlib import Path
+
 from deepagents import create_deep_agent
+from deepagents.backends import FilesystemBackend
 from langchain.chat_models import init_chat_model
+from langgraph.checkpoint.memory import MemorySaver
 
 from infra.logging import get_logger
 from infra.settings import get_settings
@@ -13,7 +17,14 @@ import asyncio
 from middleware.audit import ToolAuditMiddleware
 from middleware.context import RequestContextMiddleware
 from middleware.cost import CostMeterMiddleware
+from tools.mcp import MCPManager
+from tools.registry import get_tools
 
+# 项目根目录（agent 的文件读写圈在这里，virtual_mode 挡掉越权）
+PROJECT_ROOT = str(Path(__file__).resolve().parent)
+def build_backend():
+    """本地开发用 FilesystemBackend，圈在项目根目录内"""
+    return FilesystemBackend(root_dir=PROJECT_ROOT, virtual_mode=True)
 logger = get_logger()
 DEVMATE_SYSTEM_PROMPT = """你是 DevMate，一个严谨的研发助手，服务于一个 Python / FastAPI 订单微服务团队。
 
@@ -35,20 +46,28 @@ def build_model():
         max_retries=s.max_retries,
         timeout=s.timeout,
     )
-def build_agent(user_id: str = "anonymous", channel: str = "cli"):
+async def build_agent(user_id: str = "anonymous", channel: str = "cli"):
     """构建 DevMate 主 Agent，返回一个已编译的 LangGraph 图。
 
     注意：创建只用 create_deep_agent（官方唯一工厂）。
     "异步"体现在调用阶段——我们之后用 agent.ainvoke / agent.astream。
     """
+    #这里的virtual_mode参数为是否允许agent读写文件
+    backend = FilesystemBackend(root_dir=str(PROJECT_ROOT),virtual_mode=True)
+    mcp_tools = await MCPManager.from_settings().get_tools()
     agent = create_deep_agent(
         model=build_model(),
         system_prompt=DEVMATE_SYSTEM_PROMPT,
+        backend=backend,
+        tools=get_tools("git", "search", "test")+mcp_tools,
+        skills = [str(Path(PROJECT_ROOT) / "skills")],
+        memory=[str(Path(PROJECT_ROOT) / "AGENTS.md")],
         middleware=[
             RequestContextMiddleware(user_id=user_id, channel=channel),
             ToolAuditMiddleware(),
             CostMeterMiddleware(),
         ],
+        checkpointer=MemorySaver(),
     )
     logger.info("DevMate 主 Agent 构建完成：model={}", get_settings().model_name)
     return agent
