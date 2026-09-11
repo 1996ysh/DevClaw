@@ -1,11 +1,11 @@
 #测试审计中间件 上下文和花费中间件
-from main import build_agent
+from main import build_sandbox_agent
 from scripts.common import print_all
 import  asyncio
 
 async def main():
     # 传入身份，观察 RequestContextMiddleware 注入效果
-    agent = build_agent(user_id="alice", channel="cli")
+    agent = build_sandbox_agent(user_id="alice", channel="cli")
 
     task = (
         "为订单服务实现一个折扣计算模块，放在 discount.py：calc_subtotal、apply_coupon、"

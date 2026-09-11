@@ -4,12 +4,12 @@
 """
 import asyncio
 
-from main import build_agent
+from main import build_sandbox_agent
 from scripts.common import print_all
 
 
 async def main():
-    agent = build_agent(user_id="alice", channel="cli")
+    agent = build_sandbox_agent(user_id="alice", channel="cli")
 
     # 这个任务会命中 fastapi-endpoint 规范，且涉及金额 → 应触发 AGENTS.md 的 Decimal 铁律
     task = (

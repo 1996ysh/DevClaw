@@ -31,7 +31,9 @@ class Settings(BaseSettings):
     # ===== 连接弹性 =====
     max_retries: int = 12
     timeout: int = 60
-
+    pg_pool_min: int = 2
+    pg_pool_max:int = 20
+    redis_pool_max:int = 20
     # ===== 持久化底座 =====
     postgres_url: str = "postgresql://root:2005@localhost:5432/DevClaw"
     redis_url: str = "redis://localhost:6379/0"

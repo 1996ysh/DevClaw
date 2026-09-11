@@ -1,7 +1,7 @@
 
 import asyncio
 
-from main import build_agent
+from main import build_sandbox_agent
 
 # 用多步任务，便于看到它先 write_todos 列计划、再 write_file 写文件
 MULTI_STEP_TASK = (
@@ -11,7 +11,7 @@ MULTI_STEP_TASK = (
 
 
 async def main():
-    agent = build_agent()
+    agent = build_sandbox_agent()
 
     # stream_mode="updates"：只打印每一步"新产生"的更新，最适合观察 Agent 决策过程
     async for chunk in agent.astream(

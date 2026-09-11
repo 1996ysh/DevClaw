@@ -10,11 +10,8 @@ from deepagents.backends import FilesystemBackend
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import MemorySaver
-
 from infra.logging import get_logger
 from infra.settings import get_settings
-import asyncio
-
 from middleware.audit import ToolAuditMiddleware
 from middleware.context import RequestContextMiddleware
 from middleware.cost import CostMeterMiddleware
@@ -24,7 +21,7 @@ from tools.mcp import MCPManager
 from tools.registry import get_tools
 load_dotenv()
 # 项目根目录（agent 的文件读写圈在这里，virtual_mode 挡掉越权）
-PROJECT_ROOT = str(Path(__file__).resolve().parent)
+PROJECT_ROOT = Path(__file__).resolve().parent
 def build_backend():
     """本地开发用 FilesystemBackend，圈在项目根目录内"""
     return FilesystemBackend(root_dir=PROJECT_ROOT, virtual_mode=True)
@@ -49,7 +46,7 @@ def build_model():
         max_retries=s.max_retries,
         timeout=s.timeout,
     )
-async def build_agent(thread_id:str,user_id: str = "anonymous", channel: str = "cli"):
+async def build_sandbox_agent(thread_id:str,user_id: str = "anonymous", channel: str = "cli"):
     """构建 DevMate 主 Agent，返回一个已编译的 LangGraph 图。
 
     注意：创建只用 create_deep_agent（官方唯一工厂）。
@@ -90,3 +87,25 @@ async def build_agent(thread_id:str,user_id: str = "anonymous", channel: str = "
     logger.info("DevMate 主 Agent 构建完成：model={}", get_settings().model_name)
     logger.info("DevMate 团队版构建完成：5 子代理 + 沙箱后端（项目已 seed 到 {}）", workdir)
     return agent,sandbox, client
+# agent/main.py（节选：build_agent 接收外部 checkpointer/store）
+def build_agent(checkpointer=None, store=None, user_id="anonymous", channel="api"):
+    """服务化版：checkpointer/store 由外部（lifespan）传入并复用。
+
+    不传时退化为内存（仅供脚本/测试），传入则用 Postgres 持久化。
+    """
+    backend = FilesystemBackend(root_dir=str(PROJECT_ROOT), virtual_mode=True)
+    return create_deep_agent(
+        model=build_model(),
+        system_prompt=DEVMATE_SYSTEM_PROMPT,
+        backend=backend,
+        skills=[str(PROJECT_ROOT / "skills")],
+        memory=[str(PROJECT_ROOT / "AGENTS.md")],
+        tools=get_tools("git", "search"),
+        middleware=[
+            RequestContextMiddleware(user_id=user_id, channel=channel),
+            ToolAuditMiddleware(),
+            CostMeterMiddleware(),
+        ],
+        checkpointer=checkpointer,      # ← 外部传入（lifespan 的 AsyncPostgresSaver）
+        store=store,                    # ← 外部传入（lifespan 的 AsyncPostgresStore）
+    )

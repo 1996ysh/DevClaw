@@ -12,7 +12,6 @@ async def _run(cmd: list[str], cwd: str = ".") -> str:
     cmd：命令参数
     cwd：工作目录
     """
-
     proc = await asyncio.create_subprocess_exec(
         *cmd, cwd=cwd,
         stdout=asyncio.subprocess.PIPE,

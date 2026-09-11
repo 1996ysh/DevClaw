@@ -10,7 +10,7 @@ from langchain_core.utils.uuid import uuid7   # uuid7 = 带时间戳、可排序
 
 
 from infra.logging import get_logger
-from main import build_agent
+from main import build_sandbox_agent
 
 logger = get_logger()
 
@@ -38,7 +38,7 @@ async def run_issue(
 
     # 每个 Issue 用一个全新的 thread_id → 对应一个【独立沙箱】，会话之间互不干扰。
     thread_id = str(uuid7())
-    agent, sandbox, client = await build_agent(thread_id, user_id=user_id, channel=channel)
+    agent, sandbox, client = await build_sandbox_agent(thread_id, user_id=user_id, channel=channel)
 
     try:
         # 真正跑 agent：把 issue 作为第一条 user 消息，按 thread_id 关联这次会话的状态

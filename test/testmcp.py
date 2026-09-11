@@ -8,14 +8,14 @@
 """
 import asyncio
 
-from main import build_agent
+from main import build_sandbox_agent
 from scripts.common import print_all
 
 
 async def demo_custom_tools():
     """① 自定义工具：让 DevMate 用 git 工具看改动、给 commit message（不真的提交）。"""
     print("\n========== ① 自定义工具演示（git） ==========")
-    agent = await build_agent(user_id="alice", channel="cli")
+    agent = await build_sandbox_agent(user_id="alice", channel="cli")
     task = (
         "查看当前仓库有哪些未提交的改动，"
         "用一句中文概述这些改动，并给出一个合适的 git commit message（先不要真的提交）。"

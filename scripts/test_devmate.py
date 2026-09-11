@@ -1,4 +1,4 @@
-from main import build_agent
+from main import build_sandbox_agent
 from scripts.common import print_all
 import asyncio
 #复杂多步任务
@@ -17,7 +17,7 @@ SIMPLE_TASK = (
     "放在 pricing.py 里，带类型注解和 docstring。"
 )
 async def main():
-    agent = build_agent()   # 创建：同步工厂 create_deep_agent
+    agent = build_sandbox_agent()   # 创建：同步工厂 create_deep_agent
 
     task = MULTI_STEP_TASK   # 想对照"简单任务不列计划"，改成 SIMPLE_TASK 即可
 
