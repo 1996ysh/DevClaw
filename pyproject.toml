@@ -24,6 +24,7 @@ dependencies = [
     "daytona>=0.211.2",
     "langchain-daytona>=0.0.8",
     "langchain-mcp-adapters>=0.3.2",
+    "lark-oapi>=1.7.3",
 ]
 [project.optional-dependencies]
 # MCP：

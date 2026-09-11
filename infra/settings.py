@@ -12,7 +12,7 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 # 以 settings.py 所在目录为基准定位 .env，避免工作目录不同导致找不到
 _BASE_DIR = Path(__file__).resolve().parent.parent
-
+##这里继承了BaseSettings 所以默认会读取.env的配置
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="SYC_",
@@ -46,6 +46,12 @@ class Settings(BaseSettings):
         "standard": "glm5.2",     # 中等任务：测试
         "cheap": "qwen-plus",       # 简单任务：读代码、总结
     }
+    #飞书配置
+    feishu_app_id: str = ""
+    feishu_app_secret: SecretStr = SecretStr("")
+    feishu_encrypt_key: str = ""           # 长连接可留空；Webhook 回调模式才用
+    feishu_verification_token: str = ""    # 同上
+    api_keys: dict[str, str] = {}
 @lru_cache
 def get_settings() -> Settings:
     """全进程单例。业务代码统一通过它拿配置。"""
