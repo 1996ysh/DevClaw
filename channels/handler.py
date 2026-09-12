@@ -10,13 +10,13 @@ from main import build_agent
 
 logger = get_logger()
 
-
-async def handle_message(msg: InboundMessage, checkpointer, store) -> str:
+#对外暴露把不同渠道的消息传给agent
+async def handle_message(msg: InboundMessage, checkpointer, store,tenant_id) -> str:
     """处理一条归一化消息，返回 DevMate 的回复文本。
 
     checkpointer/store 由调用方（服务的 app.state）传入复用。
     """
-    thread_id = thread_id_for(msg)   # (渠道,会话) → 稳定 thread_id
+    thread_id = thread_id_for(msg,tenant_id)   # (渠道,会话) → 稳定 thread_id
     logger.info("处理消息：channel={} user={} thread={}", msg.channel, msg.user_id, thread_id)
 
     agent = build_agent(

@@ -1,6 +1,6 @@
 """scripts/ch08_call_service.py —— 第 8 章：调 DevMate 服务自测（含续聊）
 
-先启动服务：uv run uvicorn api.app:app --port 8000
+先启动服务：uv run python -m api
 再运行本脚本：uv run python -m scripts.ch08_call_service
 """
 import asyncio

@@ -82,6 +82,8 @@ async def build_sandbox_agent(thread_id:str,user_id: str = "anonymous", channel:
             ToolAuditMiddleware(),
             CostMeterMiddleware(),
         ],
+        #memorySaver()是把数据存放到Python 进程的内存
+        #如果运行进程结束这个数据就会丢失
         checkpointer=MemorySaver(),
     )
     logger.info("DevMate 主 Agent 构建完成：model={}", get_settings().model_name)

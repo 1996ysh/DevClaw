@@ -713,6 +713,11 @@ vectorstore = [
     { name = "langchain-postgres" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "arq", marker = "extra == 'serving'", specifier = ">=0.26.0" },
@@ -744,6 +749,9 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
 provides-extras = ["mcp", "sandbox", "redis-graph", "vectorstore", "serving", "deploy", "obs"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "distro"

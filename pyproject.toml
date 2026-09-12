@@ -43,3 +43,8 @@ deploy = ["gunicorn>=22.0.0"]
 obs = ["langsmith>=0.3.0", "prometheus-client>=0.20.0", "locust>=2.29.0"]
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

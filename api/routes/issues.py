@@ -1,10 +1,14 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends
+from starlette.requests import Request
 
 from api.deps import get_store, get_checkpointer
 from api.schema import IssueResponse, IssueRequest
-from main import build_sandbox_agent, build_agent
+from channels.base import InboundMessage
+from channels.handler import handle_message
+from gateway.auth import require_api_key
+from main import build_agent
 
 # 定义路由
 router = APIRouter(prefix="/issues", tags=["业务相关issues"])
@@ -34,3 +38,23 @@ async  def submit_issue(
     reply = result["messages"][-1].content if result.get("messages") else ""
     return IssueResponse(thread_id=thread_id, reply=reply)
 
+@router.post('/secure')
+async def submit_issue_secure(
+        req:IssueRequest,
+        request: Request,
+        tenant_id:str = Depends(require_api_key)
+):
+    """需要X-API-Key的端点；租户身份贯穿到会话隔离"""
+    inbound = InboundMessage(
+        channel=req.channel,
+        user_id=req.user_id,
+        text=req.issue,
+        conversation_id=req.thread_id or req.user_id,
+    )
+    reply = await handle_message(
+        inbound,
+        request.app.state.checkpointer,
+        request.app.state.store,
+        tenant_id=tenant_id,
+    )
+    return {'reply': reply,'tenant':tenant_id}

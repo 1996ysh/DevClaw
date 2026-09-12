@@ -5,6 +5,7 @@
 
 - 技术栈：python 3.14 + FastAPI；包管理器用uv
 - 目录：源码在app/，测试在tests/，定价逻辑集中在app/pricing.py
+- Windows 本地启动 API：`uv run python -m api`（勿直接 `uvicorn api.app:app`，Proactor 与 psycopg 异步不兼容）
 
 ## 必须遵守
 

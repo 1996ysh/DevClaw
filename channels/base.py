@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-
+#this annotation already init the class
 @dataclass
 class InboundMessage:
     """归一化的入站消息——所有渠道翻译成它。"""

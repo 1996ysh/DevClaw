@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     # ===== 模型 =====
-    model_name: str = "glm-5.2"
+    model_name: str = "qwen3.8-max"
     model_provider: str = "openai"
     api_key: SecretStr                    # 用 SecretStr，避免密钥被 print/log 泄露
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -51,7 +51,11 @@ class Settings(BaseSettings):
     feishu_app_secret: SecretStr = SecretStr("")
     feishu_encrypt_key: str = ""           # 长连接可留空；Webhook 回调模式才用
     feishu_verification_token: str = ""    # 同上
-    api_keys: dict[str, str] = {}
+    #多租户配置
+    api_keys: dict[str, str] = {
+        "key-a": "tenant-a",
+        "key-b": "tenant-b"
+    }
 @lru_cache
 def get_settings() -> Settings:
     """全进程单例。业务代码统一通过它拿配置。"""
