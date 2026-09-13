@@ -668,6 +668,7 @@ name = "devclaw"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "arq" },
     { name = "daytona" },
     { name = "deepagents" },
     { name = "fastapi" },
@@ -720,6 +721,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "arq", specifier = ">=0.28.0" },
     { name = "arq", marker = "extra == 'serving'", specifier = ">=0.26.0" },
     { name = "daytona", specifier = ">=0.211.2" },
     { name = "deepagents", specifier = ">=0.6.0" },

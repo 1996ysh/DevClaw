@@ -53,6 +53,7 @@ async def run():
     async def _handle(inbound: InboundMessage):
         await feishu.send(inbound.conversation_id, "收到，我的主人")   # 先回执
         try:
+            #todo 处理消息这需把arq接入进来
             reply = await handle_message(inbound, checkpointer, store)
         except Exception as e:  # noqa: BLE001
             logger.exception("处理飞书消息失败：{}", e)

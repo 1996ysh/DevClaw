@@ -11,7 +11,7 @@ from main import build_agent
 logger = get_logger()
 
 #对外暴露把不同渠道的消息传给agent
-async def handle_message(msg: InboundMessage, checkpointer, store,tenant_id) -> str:
+async def handle_message(msg: InboundMessage, checkpointer, store,tenant_id = "default") -> str:
     """处理一条归一化消息，返回 DevMate 的回复文本。
 
     checkpointer/store 由调用方（服务的 app.state）传入复用。

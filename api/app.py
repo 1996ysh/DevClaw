@@ -22,14 +22,20 @@ from infra.redis import build_redis
 from profiles import register_all_profiles
 from api.routes.issues import router as issues_router
 from channels.webhook import router as webhook_router
+from tasks.queue import get_arq_redis
+from tasks.store import init_task_table
+from api.routes.task_bg import router as tasks_bg_router
+from api.routes.jobs import router as jobs_router
 logger = get_logger()
 
+#整个fastapi应用程序的生命周期
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     #注册harness profile
     register_all_profiles()
     #打开postgres连接池
     pool = build_pg_pool()
+
     await pool.open()
     logger.info("postgres连接池已打开")
     #用同一个池构造异步saver/store并setup建表
@@ -37,9 +43,13 @@ async def lifespan(app:FastAPI):
     store = AsyncPostgresStore(pool)
     await checkpointer.setup()
     await store.setup()
+
     logger.info("postgres checkpoint和store已初始化")
+    await init_task_table(pool)
     redis = build_redis()
+    arq_redis = await get_arq_redis()
     #挂到app.state 共所有请求复用
+    app.state.arq_redis = arq_redis
     app.state.pg_pool = pool
     app.state.checkpointer = checkpointer
     app.state.store = store
@@ -47,8 +57,10 @@ async def lifespan(app:FastAPI):
     try:
         yield
     finally:
+        #应用程序关闭时统一释放
         await redis.aclose()
         await pool.close()
+        await arq_redis.close()
         logger.info("连接池已关闭")
 
 #下面这里的路由只不过是把子路由合并过来，并不影响下面的app.get的路由路径
@@ -62,6 +74,8 @@ app.add_middleware(
 )
 app.include_router(issues_router)
 app.include_router(webhook_router)
+app.include_router(tasks_bg_router)
+app.include_router(jobs_router)
 # 统一异常处理：不把内部堆栈暴露给客户端
 @app.exception_handler(Exception)
 async def unhandled_exc_handler(request: Request, exc: Exception):

@@ -1,6 +1,6 @@
 """infra/persistence.py —— 建异步持久化资源（saver/store），供服务与独立进程共用
 
-第 8 章把建池/saver/store 写在了 FastAPI lifespan 里。但飞书长连接接收端是
+建池/saver/store 写在了 FastAPI lifespan 里。但飞书长连接接收端是
 独立进程、不经过 lifespan，需要自己建一份。于是把这段抽出来两边复用——
 这也修正了"独立进程 from api.app import app 拿不到 app.state"的错误接法。
 """

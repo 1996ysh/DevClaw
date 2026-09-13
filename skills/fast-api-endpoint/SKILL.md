@@ -4,7 +4,6 @@ description: 当需要在订单服务里新增或修改fastapi接口(路由、�
 ---
 # Fastapi接口编码规范
 
-
 ## 路由
 
 - 用APIRouter按资源分模块，前缀清晰(/orders,/users)
