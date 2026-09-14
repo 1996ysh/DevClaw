@@ -56,6 +56,22 @@ class Settings(BaseSettings):
         "key-a": "tenant-a",
         "key-b": "tenant-b"
     }
+    ##沙箱隔离
+    #docker自托管
+    sandbox_provider:str = 'docker'
+    #runc(加固容器)/runsc(gVisor)/kata(microVM)
+    sandbox_runtime:str = 'runc'
+    #dockerfile构建镜像
+    sandbox_image:str = 'devclaw-sandbox:latest'
+    #容器工作目录
+    sandbox_workdir:str = '/home/agent'
+    sandbox_mem_limit:str ='512m'
+    sandbox_pids_limit:int = 256
+    sandbox_cpus:str = '1.0'
+    #沙箱池并发上限
+    sandbox_pool_size:int = 4
+    ##并发与限流  llm并发上限
+    max_concurrent_llm: int = 8
 @lru_cache
 def get_settings() -> Settings:
     """全进程单例。业务代码统一通过它拿配置。"""

@@ -4,7 +4,6 @@ agent/main.py —— 构建 DevMate 主 Agent
 - system_prompt 是 DevMate 的"领域人设"，会追加到 DeepAgents 内置提示词之后
 """
 from pathlib import Path
-
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
 from dotenv import load_dotenv
@@ -15,11 +14,13 @@ from infra.settings import get_settings
 from middleware.audit import ToolAuditMiddleware
 from middleware.context import RequestContextMiddleware
 from middleware.cost import CostMeterMiddleware
+from sandbox.docker_manager import create_one_sandbox, seed_project
 from sandbox.manager import get_or_create_sandbox_backend
 from subagents.profile import build_subagents
 from tools.mcp import MCPManager
 from tools.registry import get_tools
 load_dotenv()
+logger = get_logger()
 # 项目根目录（agent 的文件读写圈在这里，virtual_mode 挡掉越权）
 PROJECT_ROOT = Path(__file__).resolve().parent
 def build_backend():
@@ -34,6 +35,22 @@ DEVMATE_SYSTEM_PROMPT = """你是 DevMate，一个严谨的研发助手，服务
 - 不臆测：信息不足时先用 read_file / grep 读相关文件再动手。
 - 每次改动后，用一两句话说明"改了什么、为什么这么改"。
 """
+##构建沙箱
+async def build_sandbox_backend():
+    """
+    按照SYC_SANDBOX_PROVIDER 选用沙箱后端 返回(backend,workdir)
+    docker ->子托管加固容器
+    daytona->外部托管沙箱
+    """
+    s = get_settings()
+    if s.sandbox_provider == "docker":
+        sb = await create_one_sandbox()
+        await seed_project(sb)
+        return sb, s.sandbox_workdir
+    else:
+        backend,sandbox,client,workdir = get_or_create_sandbox_backend("default")
+        return backend,workdir
+
 
 def build_model():
     s = get_settings()
@@ -73,6 +90,7 @@ async def build_sandbox_agent(thread_id:str,user_id: str = "anonymous", channel:
             "委派时，把上面的【绝对路径规则】一并转达给子代理。"
         ),
         backend=sandbox_backend,
+        # backend=  build_sandbox_backend(),
         subagents=build_subagents(workdir),
         tools=get_tools("git", "search", "test")+mcp_tools,
         skills=[f"{workdir}/skills"],

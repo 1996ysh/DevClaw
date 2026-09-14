@@ -22,7 +22,7 @@ async def delete_database(db_name: str) -> str:
 
 async def main():
     #InMemorySaver()=MemorySaver()
-    checkpointer = InMemorySaver()      
+    checkpointer = InMemorySaver()
     agent = create_deep_agent(
         model=build_model(),
         system_prompt="你是运维助手，按用户要求操作。用户要求删库时，直接调用 delete_database 工具，不要文字确认，系统会自动拦截。",

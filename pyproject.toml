@@ -26,6 +26,7 @@ dependencies = [
     "langchain-mcp-adapters>=0.3.2",
     "lark-oapi>=1.7.3",
     "arq>=0.28.0",
+    "slowapi>=0.1.10",
 ]
 [project.optional-dependencies]
 # MCP：
