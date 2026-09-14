@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     # ===== 模型 =====
-    model_name: str = "qwen3.8-max"
+    model_name: str = "kimi-k3"
     model_provider: str = "openai"
     api_key: SecretStr                    # 用 SecretStr，避免密钥被 print/log 泄露
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
