@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from channels.base import InboundMessage
 from channels.handler import handle_message
+from infra.idempotency import seen_before
 from infra.logging import get_logger
 
 logger = get_logger()
@@ -32,7 +33,7 @@ async def feishu_webhook(request: Request, background: BackgroundTasks):
     # ② 幂等去重：用事件 id，避免飞书重试导致重复处理
     header = body.get("header", {})
     event_id = header.get("event_id")
-    if event_id and event_id in _seen_event_ids:
+    if event_id and await seen_before(request.app.state.redis, event_id,ttl_seconds=3600):
         return JSONResponse({"code": 0})   # 重复事件，直接确认
     if event_id:
         _seen_event_ids.add(event_id)

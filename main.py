@@ -9,9 +9,12 @@ from deepagents.backends import FilesystemBackend
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import MemorySaver
+
+from infra.fallback import build_fallback_middleware
 from infra.logging import get_logger
 from infra.settings import get_settings
 from middleware.audit import ToolAuditMiddleware
+from middleware.concurrency import LLMConcurrencyMiddleware
 from middleware.context import RequestContextMiddleware
 from middleware.cost import CostMeterMiddleware
 from sandbox.docker_manager import create_one_sandbox, seed_project
@@ -125,6 +128,8 @@ def build_agent(checkpointer=None, store=None, user_id="anonymous", channel="api
             RequestContextMiddleware(user_id=user_id, channel=channel),
             ToolAuditMiddleware(),
             CostMeterMiddleware(),
+            LLMConcurrencyMiddleware(),
+            build_fallback_middleware()
         ],
         checkpointer=checkpointer,      # ← 外部传入（lifespan 的 AsyncPostgresSaver）
         store=store,                    # ← 外部传入（lifespan 的 AsyncPostgresStore）

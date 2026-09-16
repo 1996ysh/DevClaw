@@ -2,10 +2,13 @@
 from uuid import uuid4
 from fastapi import APIRouter, Request
 
+from gateway.limiter import limiter
+
 router = APIRouter(prefix="/jobs", tags=["jobs-arq"])
 
 
 @router.post("")
+@limiter.limit("10/minute")
 async def submit_async(req_body: dict, request: Request):
     """提交到 arq 队列，立即返回 job_id。"""
     from tasks.queue import enqueue_issue

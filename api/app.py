@@ -13,9 +13,12 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from fastapi.responses import JSONResponse
 from langgraph.store.postgres import AsyncPostgresStore
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from api.schema import HealthResponse
+from gateway import limiter
 from infra.db import build_pg_pool
 from infra.logging import get_logger
 from infra.redis import build_redis
@@ -54,6 +57,8 @@ async def lifespan(app:FastAPI):
     app.state.checkpointer = checkpointer
     app.state.store = store
     app.state.redis = redis
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
     try:
         yield
     finally:

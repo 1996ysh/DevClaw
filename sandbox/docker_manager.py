@@ -83,3 +83,38 @@ async def destroy_sandbox(sandbox: DockerSandbox) -> None:
     """销毁容器（用完即弃）。tmpfs 工作目录随容器一起消失，不残留。"""
     await _run(["docker", "rm", "-f", sandbox.container_id])
     logger.info("容器已销毁：{}", sandbox.container_id)
+
+# sandbox/docker_manager.py（追加：只读 reviewer 用的沙箱）
+async def create_readonly_sandbox(source_sandbox: DockerSandbox) -> DockerSandbox:
+    """给 reviewer 起一个只读容器：把 source_sandbox 的工作目录内容复制进来后设为只读。
+
+    实现：① 起一个新容器；② 从源容器把代码 cp 出来再 cp 进新容器；
+         ③ 在新容器内 chmod -R a-w 工作目录,使 execute 跑 echo>file 也写不进。
+    这样 reviewer 即使用 execute 也改不了代码——靠文件系统权限,不靠 prompt。
+    """
+    import tempfile
+    s = get_settings()
+    name = f"syc-ro-{uuid.uuid4().hex[:12]}"
+    workdir = s.sandbox_workdir
+    code, out = await _run([
+        "docker", "run", "-d", "--name", name,
+        "--runtime", s.sandbox_runtime,
+        "--network", "none", "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges", "--read-only",
+        "--tmpfs", f"{workdir}:rw,exec,size=512m,uid=1000",
+        "--memory", s.sandbox_mem_limit, "--memory-swap", s.sandbox_mem_limit,
+        "--pids-limit", str(s.sandbox_pids_limit), "--cpus", s.sandbox_cpus,
+        "--user", "1000:1000", "-w", workdir,
+        s.sandbox_image, "sleep", "infinity",
+    ])
+    if code != 0:
+        raise RuntimeError(f"起只读沙箱失败：{out}")
+    ro = DockerSandbox(container_id=name, workdir=workdir)
+    # 把源容器代码搬进来(经宿主中转),然后把工作目录设为不可写
+    with tempfile.TemporaryDirectory() as tmpd:
+        await _run(["docker", "cp", f"{source_sandbox.container_id}:{workdir}/.", tmpd])
+        await _run(["docker", "cp", f"{tmpd}/.", f"{name}:{workdir}"])
+    # chmod 去掉写位(用 root 改,因为非 root 改不动自己没权限的位)
+    await _run(["docker", "exec", "-u", "0", name, "chmod", "-R", "a-w", workdir])
+    logger.info("只读 reviewer 沙箱已起：{}", name)
+    return ro
