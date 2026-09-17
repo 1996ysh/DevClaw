@@ -9,10 +9,10 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 
 from channels.base import InboundMessage
-from channels.handler import handle_message
 from infra.idempotency import seen_before
 from infra.logging import get_logger
 from obs.metrics import IDEMPOTENCY_HITS
+from tasks.queue import enqueue_issue
 
 logger = get_logger()
 
@@ -57,14 +57,15 @@ async def feishu_webhook(request: Request, background: BackgroundTasks):
                 channel="feishu", user_id=open_id, text=text,
                 conversation_id=chat_id, raw=body,
             )
-            cp = request.app.state.checkpointer
-            st = request.app.state.store
 
             async def _process():
-                from channels.feishu import FeishuChannel
-                fs = FeishuChannel()
-                reply = await handle_message(inbound, cp, st)
-                await fs.send(chat_id, reply)
+                payload = {
+                    "channel": inbound.channel,
+                    "user_id": inbound.user_id,
+                    "text": inbound.text,
+                    "conversation_id": inbound.conversation_id,
+                }
+                await enqueue_issue(request.app.state.arq_redis, payload)
 
             # 用 FastAPI 原生 BackgroundTasks（响应返回后执行）——比游离的
             # asyncio.create_task 正规：它由框架管理、保证在响应后调度。
@@ -89,7 +90,11 @@ async def generic_webhook(request: Request):
         channel="webhook", user_id=body.get("source", "external"),
         text=text, conversation_id=body.get("conversation_id", "default"), raw=body,
     )
-    reply = await handle_message(
-        inbound, request.app.state.checkpointer, request.app.state.store
-    )
-    return JSONResponse({"code": 0, "reply": reply})
+    payload = {
+        "channel": inbound.channel,
+        "user_id": inbound.user_id,
+        "text": inbound.text,
+        "conversation_id": inbound.conversation_id,
+    }
+    job_id = await enqueue_issue(request.app.state.arq_redis, payload)
+    return JSONResponse({"code": 0, "job_id": job_id})

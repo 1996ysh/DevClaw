@@ -11,10 +11,10 @@ from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
 
 from channels.base import InboundMessage
 from channels.feishu import FeishuChannel
-from channels.handler import handle_message
 from infra.persistence import open_persistence
 from infra.settings import get_settings
 from infra.logging import get_logger
+from tasks.queue import enqueue_issue, get_arq_redis
 
 logger = get_logger()
 
@@ -48,17 +48,24 @@ async def run():
     s = get_settings()
     feishu = FeishuChannel()
     pool, checkpointer, store = await open_persistence()
+    arq_redis = await get_arq_redis()
     loop = asyncio.get_running_loop()
 
     async def _handle(inbound: InboundMessage):
-        await feishu.send(inbound.conversation_id, "收到，我的主人")   # 先回执
+        await feishu.send(inbound.conversation_id, "收到，我的主人")
         try:
-            #todo 处理消息这需把arq接入进来
-            reply = await handle_message(inbound, checkpointer, store)
+            payload = {
+                "channel": inbound.channel,
+                "user_id": inbound.user_id,
+                "text": inbound.text,
+                "conversation_id": inbound.conversation_id,
+            }
+            job_id = f"feishu-{inbound.conversation_id}-{inbound.user_id}"
+            await enqueue_issue(arq_redis, payload, job_id=job_id)
+            logger.info("任务已入队：job_id={}", job_id)
         except Exception as e:  # noqa: BLE001
-            logger.exception("处理飞书消息失败：{}", e)
-            reply = "处理出错了，请稍后再试。"
-        await feishu.send(inbound.conversation_id, reply)
+            logger.exception("入队失败：{}", e)
+            await feishu.send(inbound.conversation_id, "处理出错了，请稍后再试。")
 
     def on_message(event: P2ImMessageReceiveV1) -> None:
         # SDK 回调是同步的，且运行在 SDK 自己的线程——用 run_coroutine_threadsafe
@@ -83,6 +90,7 @@ async def run():
         # cli.start() 是阻塞的；放到线程里跑，保持本事件循环活着以处理回调协程
         await asyncio.to_thread(cli.start)
     finally:
+        await arq_redis.close()
         await pool.close()
 
 

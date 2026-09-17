@@ -9,19 +9,15 @@ from datetime import datetime, timezone
 
 
 async def enqueue_issue(redis, payload: dict, job_id: str | None = None) -> str:
-    """入队，返回 job_id。在 payload 里塞 enqueued_at，供 worker 算排队等待时间。"""
-    payload = {**payload, "enqueued_at": datetime.now(timezone.utc).isoformat()}  # 自己塞时间戳
+    """入队，返回 job_id。在 payload 里塞 enqueued_at，供 worker 算排队等待时间。job_id 用于幂等：同 id 不会重复入队。"""
+    payload = {**payload, "enqueued_at": datetime.now(timezone.utc).isoformat()}
     job = await redis.enqueue_job("process_issue", payload, _job_id=job_id)
     return job.job_id if job is not None else job_id
+
+
 async def get_arq_redis():
     """建 arq 的 Redis 连接池（producer 用）。lifespan 建一次复用。"""
     return await create_pool(RedisSettings.from_dsn(get_settings().redis_url))
-
-
-async def enqueue_issue(redis, payload: dict, job_id: str | None = None) -> str:
-    """入队，返回 job_id。job_id 用于幂等：同 id 不会重复入队。"""
-    job = await redis.enqueue_job("process_issue", payload, _job_id=job_id)
-    return job.job_id if job is not None else job_id
 
 
 async def get_job_result(redis, job_id: str) -> dict:
