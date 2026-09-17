@@ -7,21 +7,24 @@ Windows 本地请用：uv run python -m api
 （直接 uvicorn api.app:app 会踩 ProactorEventLoop + psycopg 不兼容。）
 """
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+import  os
+from fastapi import FastAPI,Response
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from fastapi.responses import JSONResponse
 from langgraph.store.postgres import AsyncPostgresStore
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from api.schema import HealthResponse
 from gateway import limiter
+from gateway.limiter import _tenant_key
 from infra.db import build_pg_pool
 from infra.logging import get_logger
 from infra.redis import build_redis
+from obs.metrics import RATELIMIT_REJECTED, PrometheusMiddleware
 from profiles import register_all_profiles
 from api.routes.issues import router as issues_router
 from channels.webhook import router as webhook_router
@@ -30,7 +33,13 @@ from tasks.store import init_task_table
 from api.routes.task_bg import router as tasks_bg_router
 from api.routes.jobs import router as jobs_router
 logger = get_logger()
-
+def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    # 从限流 key 里解析租户；无 API Key 时可能是 IP
+    """这里其实啥也没干  就是记录了一下限流次数 然后就return了"""
+    key = _tenant_key(request)  # 形如 "tenant:tenant-a" 或 IP
+    tenant = key.removeprefix("tenant:") if key.startswith("tenant:") else "anonymous"
+    RATELIMIT_REJECTED.labels(tenant).inc()
+    return _rate_limit_exceeded_handler(request, exc)
 #整个fastapi应用程序的生命周期
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -58,7 +67,7 @@ async def lifespan(app:FastAPI):
     app.state.store = store
     app.state.redis = redis
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded,rate_limit_exceeded_handler)
     try:
         yield
     finally:
@@ -101,3 +110,16 @@ async def readyz(request: Request):
     if pool is None:
         return JSONResponse(status_code=503, content={"status": "not_ready", "detail": "pool 未就绪"})
     return HealthResponse(status="ready")
+
+app.add_middleware(PrometheusMiddleware)          # 装 HTTP 采集中间件
+@app.get("/metrics")                              # 普通路由，避开 app.mount 的 307
+async def metrics():
+    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        # 生产多进程（Gunicorn 多 worker）：聚合所有 worker
+        from prometheus_client import CollectorRegistry, multiprocess
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        data = generate_latest(registry)
+    else:
+        data = generate_latest()                  # 本地单进程：默认全局 registry
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)

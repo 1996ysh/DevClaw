@@ -27,6 +27,7 @@ dependencies = [
     "lark-oapi>=1.7.3",
     "arq>=0.28.0",
     "slowapi>=0.1.10",
+    "prometheus-client>=0.26.0",
 ]
 [project.optional-dependencies]
 # MCP：

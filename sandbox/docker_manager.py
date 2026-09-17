@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from pathlib import Path
 
 from infra.settings import get_settings
 from infra.logging import get_logger
+from obs.metrics import SANDBOX_CREATE_DURATION
 from sandbox.docker_sandbox import DockerSandbox
 
 logger = get_logger()
@@ -23,6 +25,7 @@ async def _run(cmd: list[str]) -> tuple[int, str]:
 
 async def create_one_sandbox() -> DockerSandbox:
     """以加固参数起一个常驻容器，返回 DockerSandbox。"""
+    start = time.perf_counter()
     s = get_settings()
     name = f"syc-sbx-{uuid.uuid4().hex[:12]}"
     workdir = s.sandbox_workdir
@@ -50,6 +53,7 @@ async def create_one_sandbox() -> DockerSandbox:
     if code != 0:
         raise RuntimeError(f"起沙箱容器失败：{out}")
     logger.info("加固容器已起：{}（runtime={}）", name, s.sandbox_runtime)
+    SANDBOX_CREATE_DURATION.observe(time.perf_counter() - start)
     return DockerSandbox(container_id=name, workdir=workdir)
 
 

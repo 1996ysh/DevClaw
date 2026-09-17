@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from infra.logging import get_logger
 from infra.settings import get_settings
+from obs.metrics import SANDBOX_ACTIVE
 from sandbox.docker_manager import create_one_sandbox, seed_project, destroy_sandbox
 
 logger = get_logger()
@@ -28,10 +29,12 @@ class SandboxPool:
             #全新 加固 隔离
             sandbox = await create_one_sandbox()
             await seed_project(sandbox)
+            SANDBOX_ACTIVE.inc()
             yield sandbox,sandbox.workdir
         finally:
             if sandbox is not None:
                 await destroy_sandbox(sandbox)
+                SANDBOX_ACTIVE.dec()
             self._sem.release()
 
 _pool:SandboxPool | None = None

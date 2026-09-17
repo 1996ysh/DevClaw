@@ -12,6 +12,7 @@ from channels.base import InboundMessage
 from channels.handler import handle_message
 from infra.idempotency import seen_before
 from infra.logging import get_logger
+from obs.metrics import IDEMPOTENCY_HITS
 
 logger = get_logger()
 
@@ -34,6 +35,7 @@ async def feishu_webhook(request: Request, background: BackgroundTasks):
     header = body.get("header", {})
     event_id = header.get("event_id")
     if event_id and await seen_before(request.app.state.redis, event_id,ttl_seconds=3600):
+        IDEMPOTENCY_HITS.inc()
         return JSONResponse({"code": 0})   # 重复事件，直接确认
     if event_id:
         _seen_event_ids.add(event_id)

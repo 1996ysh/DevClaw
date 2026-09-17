@@ -7,7 +7,7 @@ infra/settings.py —— 配置中枢
 """
 from functools import lru_cache
 from pathlib import Path
-
+import os
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 # 以 settings.py 所在目录为基准定位 .env，避免工作目录不同导致找不到
@@ -72,7 +72,24 @@ class Settings(BaseSettings):
     sandbox_pool_size:int = 4
     ##并发与限流  llm并发上限
     max_concurrent_llm: int = 8
+
+    # langsmith
+    langsmith_tracing:bool = False
+    langsmith_api_key: SecretStr = SecretStr("")
+    langsmith_project:str = 'devclaw'
+    langsmith_endpoint:str = 'https://api.smith.langchain.com'
+
+def export_langsmith_env(s:'Settings'):
+    """导出环境变量"""
+    if not s.langsmith_tracing:
+        return
+    os.environ['LANGSMITH_TRACING'] = 'true'
+    os.environ['LANGSMITH_API_KEY'] = s.langsmith_api_key.get_secret_value()
+    os.environ['LANGSMITH_PROJECT'] = s.langsmith_project
+    os.environ['LANGSMITH_ENDPOINT'] = s.langsmith_endpoint
+
 @lru_cache
 def get_settings() -> Settings:
     """全进程单例。业务代码统一通过它拿配置。"""
     return Settings()
+export_langsmith_env(get_settings())

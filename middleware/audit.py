@@ -10,6 +10,7 @@ from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
 from infra.logging import get_logger
+from obs.metrics import AGENT_TOOL_DURATION, AGENT_TOOL_CALLS
 
 logger= get_logger()
 
@@ -22,11 +23,16 @@ class ToolAuditMiddleware(AgentMiddleware):
             request:ToolCallRequest,
             handler:Callable[[ToolCallRequest],"Command | ToolMessage"]
                 )->"Command | ToolMessage":
-        tool_name = request.tool_call['name']
+        tool_name = request.tool_call["name"]
         start = time.perf_counter()
-        logger.info(f"调用工具 {tool_name} 开始")
-        #放行工具
-        result = await handler(request)
-        cost = (time.perf_counter() - start) * 1000
-        logger.info(f"调用工具 {tool_name} 结束，耗时 {cost:.2f} ms")
-        return result
+        status = "ok"
+        try:
+            return await handler(request)
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            elapsed = time.perf_counter() - start
+            AGENT_TOOL_CALLS.labels(tool_name, status).inc()        # 埋点
+            AGENT_TOOL_DURATION.labels(tool_name).observe(elapsed)  # 埋点
+            logger.info("🔧 工具 {} {}（{:.0f} ms）", tool_name, status, elapsed * 1000)

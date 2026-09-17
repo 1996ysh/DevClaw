@@ -1,4 +1,4 @@
-"""scripts/ch11_test_idempotency.py —— 第 11 章：Redis 幂等验证(需 Redis 在跑)
+"""scripts/ch11_test_idempotency.py —— 
 运行：uv run python -m scripts.ch11_test_idempotency
 """
 import asyncio
