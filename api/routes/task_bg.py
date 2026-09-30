@@ -32,7 +32,7 @@ async def _run_task(pool, checkpointer, store, task_id: str, payload: dict):
         await update_task(pool, task_id, status="error", error=str(e))
         logger.exception("后台任务失败：{}", task_id)
 
-
+###  这里的路由相当于是提交任务立马返回一个task_id 然后根据这个task_id可以一直过来查
 @router.post("")
 async def submit_task(req_body: dict, request: Request, background: BackgroundTasks):
     """提交任务：立即返回 task_id（不等它跑完）。"""

@@ -86,6 +86,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(issues_router)
 app.include_router(webhook_router)
 app.include_router(tasks_bg_router)

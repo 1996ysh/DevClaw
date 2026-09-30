@@ -14,6 +14,7 @@ from main import build_agent
 router = APIRouter(prefix="/issues", tags=["业务相关issues"])
 
 # 使用装饰器将当前函数注册为一个POST请求路由
+# 这个路由是可以任何用户过来都可以访问的，无鉴权的开放端点
 @router.post('',response_model=IssueResponse)
 async  def submit_issue(
         req:IssueRequest,
@@ -37,7 +38,7 @@ async  def submit_issue(
 
     reply = result["messages"][-1].content if result.get("messages") else ""
     return IssueResponse(thread_id=thread_id, reply=reply)
-
+# 需要api-key  而且还会根据tenant_id进行租户隔离，鉴权的安全端点
 @router.post('/secure')
 async def submit_issue_secure(
         req:IssueRequest,
@@ -45,6 +46,8 @@ async def submit_issue_secure(
         tenant_id:str = Depends(require_api_key)
 ):
     """需要X-API-Key的端点；租户身份贯穿到会话隔离"""
+
+    #先把消息归一化(实例化) 然后再handle处理
     inbound = InboundMessage(
         channel=req.channel,
         user_id=req.user_id,

@@ -1,30 +1,30 @@
 # docker-compose.prod.yml —— 生产编排（web + worker + 飞书 + pg + redis + prometheus + grafana）
+#
+# web / worker / feishu 共用同一镜像，只 build 一次，避免某个服务仍用旧 Dockerfile 缓存。
+x-app: &app
+  image: feishu:latest
+  build: .
+  env_file: .env
+  depends_on: [postgres, redis]
+  restart: unless-stopped
+
 services:
   web:                              # web 服务（Gunicorn 多 worker）
-    build: .
+    <<: *app
     # 端口映射用小众端口：宿主机 18700 → 容器内 8000。
     # 只改宿主机这一侧（左边），容器内仍是 8000（代码 bind 的、容器间访问的都不变）。
     # 用 18700 这种非常见端口，能躲开公网对 8000/80/443 的批量扫描骚扰。
     ports: ["18700:8000"]
-    env_file: .env
-    depends_on: [postgres, redis]
-    restart: unless-stopped
     # 用 Dockerfile 默认 CMD（bash scripts/start_web.sh）
 
   worker:                           # arq 任务 worker（独立进程，可多开）
-    build: .                        # 同一个镜像
+    <<: *app
     command: ["arq", "tasks.worker.WorkerSettings"]   # pip 装在系统环境，直接用 arq（不是 uv run arq）
-    env_file: .env
-    depends_on: [postgres, redis]
-    restart: unless-stopped
     # 教学用单 worker，不写 replicas（多副本指标抓取有坑，见 §2.5 提醒）
 
   feishu:                           # 飞书长连接接收端（如启用飞书渠道）
-    build: .
+    <<: *app
     command: ["python", "-m", "channels.feishu_ws"]   # 同上，直接用 python（不是 uv run python）
-    env_file: .env
-    depends_on: [postgres, redis]
-    restart: unless-stopped
 
   postgres:
     image: pgvector/pgvector:pg17

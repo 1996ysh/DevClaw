@@ -73,6 +73,13 @@ class Settings(BaseSettings):
     ##并发与限流  llm并发上限
     max_concurrent_llm: int = 8
 
+    # ===== 搜索 / 网页抓取工具 =====
+    search_timeout: float = 15.0
+    search_max_results_cap: int = 10
+    fetch_max_chars: int = 8000
+    fetch_max_bytes: int = 1_000_000
+    fetch_allow_private: bool = False  # True 仅用于内网联调/单测
+
     # langsmith
     langsmith_tracing:bool = False
     langsmith_api_key: SecretStr = SecretStr("")

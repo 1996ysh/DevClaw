@@ -21,7 +21,7 @@ router = APIRouter(prefix="/webhook", tags=["webhook"])
 # 简易幂等：记录已处理事件 id（生产用 Redis 带 TTL）
 _seen_event_ids: set[str] = set()
 
-
+## 这个路由是专门针对飞书的webhook
 @router.post("/feishu")
 async def feishu_webhook(request: Request, background: BackgroundTasks):
     """飞书 Webhook 回调模式入口（与 2.3 长连接二选一）。"""
@@ -34,7 +34,9 @@ async def feishu_webhook(request: Request, background: BackgroundTasks):
     # ② 幂等去重：用事件 id，避免飞书重试导致重复处理
     header = body.get("header", {})
     event_id = header.get("event_id")
+    #判断之前event_id是否处理过
     if event_id and await seen_before(request.app.state.redis, event_id,ttl_seconds=3600):
+        #log幂等命中（重复事件被挡）次数
         IDEMPOTENCY_HITS.inc()
         return JSONResponse({"code": 0})   # 重复事件，直接确认
     if event_id:
@@ -74,7 +76,7 @@ async def feishu_webhook(request: Request, background: BackgroundTasks):
     # ④ 立即 200（飞书 3 秒约束）——不等 agent 跑完
     return JSONResponse({"code": 0})
 
-
+### 这个是通用的webhook
 @router.post("/generic")
 async def generic_webhook(request: Request):
     """通用 Webhook：任意外部系统 POST {"text": "...", "source": "..."} 触发 DevMate。
